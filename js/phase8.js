@@ -132,14 +132,14 @@
 
         for (var i = 0; i < DRAW_SNOW_COUNT; i++) {
             //雪のインスタンスを生成
-            var sprite_snow = new Sprite('/img/snowSP.png', SNOW_PIC_SIZE, SNOW_PIC_SIZE);
+            var sprite_snow = new Sprite('img/snowSP.png', SNOW_PIC_SIZE, SNOW_PIC_SIZE);
             sprite_snow.dy = SNOW_DOWS_SPEED;
             sprite_snow.dx = DRAW_SNOW_GAP;
             snow_sprites.push(sprite_snow);
             sprite_snow = null;
         }
         //雪だるまのインスタンスを生成
-        img_snow_man = new Sprite('/img/snow_man.png', SNOW_MAN_PIC_SIZE, SNOW_MAN_PIC_SIZE);
+        img_snow_man = new Sprite('img/snow_man.png', SNOW_MAN_PIC_SIZE, SNOW_MAN_PIC_SIZE);
 
         img_snow_man.limit_rightPosition = getRightLimitPosition(canvas.clientWidth, img_snow_man.width);
 
