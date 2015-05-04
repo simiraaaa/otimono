@@ -1,4 +1,7 @@
-﻿(function () {
+﻿/// <reference path="smr.js"/>
+/// <reference path="smr.single.js"/>
+
+(function (window, document, smr, undefined) {
     /* ゲーム内で共通で使用する変数 */
 
     //Sprite を格納する配列
@@ -42,6 +45,200 @@
     //前回動いた時間を格納
     var bofore_animation_time = 0;
 
+    //読み込む音
+    var sounds = {
+        kiin: 'sound/kiiiin1.mp3',
+    };
+
+    //音を一度でも鳴らしてあるか
+    var unlocked = false;
+
+    //Eventクラス
+    var Event = smr.define({
+        init: function (type, param) {
+            param && this.extend(param);
+            this.type = type;
+        },
+        clone: function (param) {
+            return Event(this.type, param && this);
+        }
+    });
+
+
+    //イベント管理のクラス
+
+    var EventDispatcher = smr.define({
+        init: function () {
+            this.listeners = {};
+        },
+
+        on: function (type, func) {
+            if (this.listener[type] === undefined) {
+                this.listener = [];
+            }
+            this.listener[type].push(func);
+        },
+
+        fire: function (e) {
+            e.target = this;
+            var ontype = 'on' + e.type;
+            this[ontype] && this[ontype](e);
+
+            var listeners = this.listeners[e.type];
+            if (listeners) {
+                var copy = listeners.slice(0);
+                for (var i = 0, len = copy.length; i < len; ++i) {
+                    copy[i].call(this, e);
+                }
+            }
+
+            return this;
+        }
+
+
+    });
+
+    //音を再生するクラス
+    var Sounds = (function () {
+        var AudioContext = window.AudioContext || window.webkitAudioContext || window.mozAudioContext;
+        var context = new AudioContext();
+
+        var Sounds = smr.define({
+            superClass: EventDispatcher,
+
+            init: function Sounds(src_or_buffer) {
+                this.superInit();
+                this.context = context;
+                var type = typeof (src_or_buffer);
+
+                if (type === "string") {
+                    this.loaded = false;
+                    this.load(src_or_buffer);
+                }
+                else if (type === "object") {
+                    this.setup();
+                    this.setBuffer(src_or_buffer);
+                    this.loaded = true;
+                }
+                else {
+                    this.setup();
+                    this.loaded = false;
+                }
+            },
+
+            load: function (src) {
+                var self = this;
+                smr.single.ajax({
+                    url: src,
+                    responseType: 'arraybuffer',
+                    success: function (data) {
+                        context.decodeAudioData(data, function (buffer) {
+                            self.setup();
+                            self.setBuffer(buffer);
+                            self.loaded = true;
+                            self.fire(Event('load'));
+                        }, function error() {
+                            console.warn('audio load error:' + src);
+                            self.setup();
+                            self.setBuffer(context.createBuffer(1, 1, 22050));
+                            self.loaded = true;
+                            self.fire(Event('load'));
+                        });
+                    }
+                });
+            },
+
+            play: function (time) {
+                if (this.isPlaying) { return; }
+                this.isPlaying = true;
+
+                if (time === undefined) time = 0;
+
+                this.source.start(context.currentTime + time);
+
+                return this;
+            },
+
+            stop: function (time) {
+                if (!this.isPlaying) { return; }
+                this.isPlaying = false;
+
+                if (time === undefined) time = 0;
+
+                this.source.stop(context.currentTime + time);
+                return this;
+            },
+
+            //最低限destinationだけはconnect
+            //source->gain->destination
+            setup: function () {
+
+                var source = context.createBufferSource();
+                var gain = context.createGain();
+
+                source.connect(gain);
+                gain.connect(context.destination);
+
+                this.source = source;
+                this.gain = gain;
+            },
+
+            /**
+            自分と同じ音が再生できるクローン
+            */
+            clone: function () {
+                var sound = new Sounds(this.getBuffer());
+                sound.setVolume(this.getVolume());
+                return sound;
+            },
+
+            setVolume: function (v) {
+                this.gain.gain.value = v;
+                return this;
+            },
+
+            getVolume: function () {
+                return this.gain.gain.value;
+            },
+
+            setLoop: function (b) {
+                this.source.loop = (b === undefined) ? true : b;
+                return this;
+            },
+
+            getLoop: function () {
+                return this.source.loop;
+            },
+
+            setBuffer: function (buffer) {
+                this.source.buffer = buffer;
+                return this;
+            },
+
+            getBuffer: function () {
+                return this.source.buffer;
+            }
+
+
+        });
+
+        //iOSはタッチイベントとかでこれを実行すると音が鳴るようになる。
+        Sounds.unlock = function () {
+            var unlockBuffer = context.createBuffer(1, 1, 22050);
+            var unlockSrc = context.createBufferSource();
+            unlockSrc.buffer = unlockBuffer;
+            unlockSrc.connect(context.destination);
+            unlockSrc.start(0);
+            return this;
+        };
+
+        return Sounds;
+
+    })();
+
+
+
+
     //ゲーム内で動作する Sprite クラスの定義
     var Sprite = function (imgSrc, width, height) {
         var that = this;
@@ -83,25 +280,52 @@
         };
     };
 
+
     //Document の準備ができたら
     document.addEventListener("DOMContentLoaded", function () {
-        loadAssets();
-        setHandlers();
+        var soundsLoaded = function () {
+            if (this.loaded) {
+                loadAssets();
+                setHandlers();
+            }
+        };
+
+        for (var k in sounds) {
+            var s = sounds[k] = new Sounds(sounds[k]);
+            s.onload = soundsLoaded();
+        }
     });
 
+
     function setHandlers() {
+        var key = {
+            right: false,
+            left: false,
+        };
+
         //キーイベントの取得 (キーダウン)
         document.addEventListener("keydown", function (evnt) {
             if (evnt.which == LEFT_KEY_CODE) {
                 key_value = PLAYER_MOVE_SPEED_L;
+                key.left = true;
+                key.right = false;
             } else if (evnt.which == RIGHT_KEY_CODE) {
                 key_value = PLAYER_MOVE_SPEED_R;
+                key.right = true;
+                key.left = false;
             }
         });
 
         //キーイベントの取得 (キーアップ)
-        document.addEventListener("keyup", function () {
-            key_value = 0;
+        document.addEventListener("keyup", function (e) {
+            if (e.keyCode === RIGHT_KEY_CODE && key.right) {
+                key_value = 0;
+                key.right = false;
+            } else if (e.keyCode === LEFT_KEY_CODE && key.left) {
+                key_value = 0;
+                key.left = false;
+            }
+
         });
 
         //タッチした際の右クリックメニューの抑制
@@ -109,6 +333,11 @@
 
         //Canvas へのタッチイベント設定
         canvas.addEventListener("touchstart", function (evnt) {
+            //iPhoneで音が鳴るようにする
+            if (!unlocked) {
+                Sounds.unlock();
+                unlocked = true;
+            }
             if ((screen.width / 2) > evnt.touches[0].clientX) {
                 key_value = PLAYER_MOVE_SPEED_L;
             } else {
@@ -256,6 +485,7 @@
         ctx.fillStyle = "red";
         ctx.fillText("ヒットしました", 100, 160);
         snow_sprite.index = 2;
+        sounds.kiin.play();
     }
 
     //当たり判定
@@ -270,4 +500,4 @@
         }
     }
 
-})();
+})(window, document, smr);

@@ -38,6 +38,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "js", "js", "{A47DC31F-7DE9-4254-BC15-6843783E2A28}"
 	ProjectSection(SolutionItems) = preProject
 		js\phase8.js = js\phase8.js
+		..\..\..\Documents\Visual Studio 2013\Projects\WebApplication2\smr\single\smr.single.js = ..\..\..\Documents\Visual Studio 2013\Projects\WebApplication2\smr\single\smr.single.js
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "img", "img", "{0442AD87-BD93-4CB4-B742-A30BFDF246F8}"
@@ -51,6 +52,23 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sound", "sound", "{8D7FF101
 	ProjectSection(SolutionItems) = preProject
 		sound\kiiiin1.mp3 = sound\kiiiin1.mp3
 	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ghh", "ghh", "{E9BB5714-F69F-42C4-AE28-63F07B927540}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "gekijou", "gekijou", "{F58D3AE5-5449-4EC3-BE21-3DB581F2DA20}"
+	ProjectSection(SolutionItems) = preProject
+		ghh\gekijou\common.css = ghh\gekijou\common.css
+		ghh\gekijou\getGhhComments.js = ghh\gekijou\getGhhComments.js
+		ghh\gekijou\ghhGekijou.html = ghh\gekijou\ghhGekijou.html
+		ghh\gekijou\index.html = ghh\gekijou\index.html
+		ghh\gekijou\inputGhhGekijouToMixi.js = ghh\gekijou\inputGhhGekijouToMixi.js
+		ghh\gekijou\memo.txt = ghh\gekijou\memo.txt
+		ghh\gekijou\min.html = ghh\gekijou\min.html
+		ghh\gekijou\setting.js = ghh\gekijou\setting.js
+		ghh\gekijou\template.html = ghh\gekijou\template.html
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "series1", "series1", "{965C377B-D846-43DE-B48C-0F8A8432CFE9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -68,5 +86,7 @@ Global
 		{A47DC31F-7DE9-4254-BC15-6843783E2A28} = {97BB1CA1-C7EA-4D87-B6E7-FC82E9943D89}
 		{0442AD87-BD93-4CB4-B742-A30BFDF246F8} = {97BB1CA1-C7EA-4D87-B6E7-FC82E9943D89}
 		{8D7FF101-67AB-49B8-8DBD-B56E4A646E77} = {97BB1CA1-C7EA-4D87-B6E7-FC82E9943D89}
+		{F58D3AE5-5449-4EC3-BE21-3DB581F2DA20} = {E9BB5714-F69F-42C4-AE28-63F07B927540}
+		{965C377B-D846-43DE-B48C-0F8A8432CFE9} = {F58D3AE5-5449-4EC3-BE21-3DB581F2DA20}
 	EndGlobalSection
 EndGlobal

@@ -1,0 +1,12 @@
+﻿body {
+    font-family: 'Lucida Grande','Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+    word-wrap: break-word;
+}
+
+p {
+    margin: 2px auto;
+}
+
+h1,h2,h3,h4{
+    text-align:center;
+}
