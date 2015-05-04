@@ -62,7 +62,9 @@
         clone: function (param) {
             return Event(this.type, param && this);
         }
+
     });
+
 
 
     //イベント管理のクラス
@@ -283,8 +285,15 @@
 
     //Document の準備ができたら
     document.addEventListener("DOMContentLoaded", function () {
-        var soundsLoaded = function () {
-            if (this.loaded) {
+        var soundsLoaded = function (e) {
+            this.setVolume(0.5);
+            var allLoaded = true;
+            for (var k in sounds) {
+                if (sounds[k].loaded) continue;
+                allLoaded = false;
+                break;
+            }
+            if (allLoaded) {
                 loadAssets();
                 setHandlers();
             }
@@ -292,7 +301,7 @@
 
         for (var k in sounds) {
             var s = sounds[k] = new Sounds(sounds[k]);
-            s.onload = soundsLoaded();
+            s.onload = soundsLoaded;
         }
     });
 
@@ -359,11 +368,16 @@
         //2d コンテキストを取得
         ctx = canvas.getContext('2d');
 
+        var snowInit = function () {
+            this.hited = false;
+        };
+
         for (var i = 0; i < DRAW_SNOW_COUNT; i++) {
             //雪のインスタンスを生成
             var sprite_snow = new Sprite('img/snowSP.png', SNOW_PIC_SIZE, SNOW_PIC_SIZE);
             sprite_snow.dy = SNOW_DOWS_SPEED;
             sprite_snow.dx = DRAW_SNOW_GAP;
+            sprite_snow.init = snowInit;
             snow_sprites.push(sprite_snow);
             sprite_snow = null;
         }
@@ -433,6 +447,8 @@
                 if (snow_sprite.y > canvas.clientHeight) {
                     snow_sprite.y = getRandomPosition(DRAW_SNOW_COUNT, -50);
                     snow_sprite.index = 0;
+                    //初期化
+                    snow_sprite.init();
                 } else {
                     if (loopCounter == 30 && snow_sprite.index != 2) {
                         snow_sprite.index = (snow_sprite.index == 0) ? 1 : 0;
@@ -485,7 +501,11 @@
         ctx.fillStyle = "red";
         ctx.fillText("ヒットしました", 100, 160);
         snow_sprite.index = 2;
-        sounds.kiin.play();
+        if (!snow_sprite.hited) {
+            sounds.kiin.clone().play();
+            snow_sprite.hited = true;
+        }
+
     }
 
     //当たり判定
