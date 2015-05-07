@@ -16,11 +16,11 @@
     var SNOW_PIC_SIZE = 32;
 
     //雪の降るスピード
-    var SNOW_DOWS_SPEED = 3;
+    var SNOW_DOWS_SPEED = 1.5;
 
     //表示する雪の数
-    var DRAW_SNOW_COUNT = 6;
-    var DRAW_SNOW_GAP = 55;
+    var DRAW_SNOW_COUNT = 10;
+    var DRAW_SNOW_GAP = 32;
 
     //雪ダルマの画像サイズ
     var SNOW_MAN_PIC_SIZE = 80;
@@ -45,6 +45,20 @@
     //前回動いた時間を格納
     var bofore_animation_time = 0;
 
+    //前回動いた時間との差
+    var deltaTime = 0;
+
+    var score = 0;
+
+    //雪に接触すると雪だるまが大きくなる
+    var sizeRate = 100;
+
+    //MAXのときはSCORE二倍
+    var MAX_SIZE_RATE = 200;
+
+    //1分以内にどれだけ稼げるか
+    var timeLimit = 60 * 1000;
+
     //読み込む音
     var sounds = {
         kiin: 'sound/kiiiin1.mp3',
@@ -53,16 +67,16 @@
     //音を一度でも鳴らしてあるか
     var unlocked = false;
 
+    
+
+
+
     //Eventクラス
     var Event = smr.define({
         init: function (type, param) {
             param && this.extend(param);
             this.type = type;
-        },
-        clone: function (param) {
-            return Event(this.type, param && this);
         }
-
     });
 
 
@@ -241,6 +255,259 @@
 
 
 
+    //描画管理
+    var drawingManager = (function () {
+
+        var drawList = [];
+        //.drawメソッドを持ってるオブジェクト
+        var drawInterfaces = [];
+
+        var draw = function () {
+            //canvas をクリア
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (var i = 0, len = drawList.length; i < len; ++i) {
+                drawList[i]();
+            }
+            for (var i = 0, len = drawInterfaces.length; i < len; ++i) {
+                drawInterfaces[i].draw();
+            }
+        };
+
+        draw.add = function (func) {
+            var target = func.draw ? drawInterfaces : drawList;
+            target.push(func);
+        };
+
+        draw.remove = function (func) {
+            var target = func.draw ? drawInterfaces : drawList;
+            target.splice(drawList.indexOf(func), 1);
+        };
+
+        draw.removeAll = function () {
+            drawInterfaces.length = 0;
+            drawList.length = 0;
+        };
+
+        return draw;
+
+    })();
+
+    var Vector2 = smr.define({
+
+        x: 0,
+        y: 0,
+        init: function (x, y) {
+            this.set(x, y);
+        },
+
+        set: function (x, y) {
+            this.x = x || 0;
+            this.y = y || 0;
+        },
+
+        add: function (v) {
+            this.x += v.x;
+            this.y += v.y;
+        },
+        mul: function (v) {
+            this.x *= v.x;
+            this.y *= v.y;
+        },
+
+        negative: function () {
+            this.set(-this.x, -this.y);
+        },
+
+
+    });
+
+    var DrawInterface = smr.define({
+        superClass: EventDispatcher,
+
+        position: null,
+
+        init: function () {
+            this.superInit();
+            this.position = Vector2(0, 0);
+        },
+
+        draw: function () {
+
+        },
+
+        setPosition: function (x, y) {
+            this.position.set(x, y);
+        },
+
+        addToDrawManager: function () { drawingManager.add(this); return this; },
+
+    });
+
+    smr.defineAccessors(DrawInterface.prototype, {
+        x: {
+            get: function () {
+                return this.position.x;
+            },
+            set: function (x) {
+                this.position.x = x;
+            },
+        },
+        y: {
+            get: function () {
+                return this.position.y;
+            },
+            set: function (y) {
+                this.position.y = y;
+            },
+        },
+    });
+
+    var Label = smr.define({
+        superClass: DrawInterface,
+
+        fill: false,
+        stroke: false,
+        isDisplay: true,
+
+        init: function (text, param) {
+            this.superInit();
+            this.text = text || "";
+            if (param) {
+                var defaults = Label.defaults;
+                this.setPosition(param.x || 0, param.y || 0);
+                this.align = param.align || defaults.align;
+                this.baseline = param.baseline || defaults.baseline;
+                this._fontSize = param.fontSize || defaults._fontSize;
+                this._fontWeight = param.fontWeight || defaults._fontWeight;
+                this._fontFamily = param.fontFamily || defaults._fontFamily;
+
+                this.fill = param.fillStyle !== undefined;
+                this.stroke = param.strokeStyle !== undefined;
+
+                if (this.fill) this.fillStyle = param.fillStyle;
+                if (this.stroke) this.strokeStyle = param.strokeStyle;
+
+                if (!this.fill && !this.stroke) {
+                    this.fill = true;
+                    this.fillStyle = Label.defaults.fillStyle;
+                }
+
+            } else {
+                this.fill = true;
+                this.extend(Label.defaults);
+                this.strokeStyle = undefined;
+            }
+
+            this._createFont();
+        },
+
+        show: function () {
+            this.isDisplay = true;
+            return this;
+        },
+
+        hide: function () { this.isDisplay = false; return this; },
+
+        toggle: function () {
+            this.isDisplay = !this.isDisplay;
+            return this;
+        },
+
+        setText: function (text) {
+            this.text = text;
+        },
+
+        setAlign: function (align) {
+            this.align = align;
+            return this;
+        },
+
+        setBaseline: function (baseline) {
+            this.baseline = baseline;
+            return this;
+        },
+
+        setFontSize: function (size) {
+            this._fontSize = size;
+            this._createFont();
+            return this;
+        },
+
+        setFontWeight: function (weight) {
+            this._fontWeight = weight;
+            this._createFont();
+            return this;
+        },
+
+        setFontFamily: function (family) {
+            this._fontFamily = family;
+            this._createFont();
+            return this;
+        },
+
+        _createFont: function () {
+            this.font = this.fontWeight + ' ' + this.fontSize + 'px ' + this.fontFamily;
+        },
+
+        draw: function () {
+            this.update();
+
+            if (!this.isDisplay) { return; }
+
+            ctx.save();
+
+            ctx.font = this.font;
+            ctx.textAlign = this.align;
+            ctx.textBaseline = this.baseline;
+
+            if (this.fill) {
+                ctx.fillStyle = this.fillStyle;
+                ctx.fillText(this.text, this.x, this.y);
+            }
+            if (this.stroke) {
+                ctx.strokeStyle = this.strokeStyle;
+                ctx.strokeText(this.text, this.x, this.y);
+            }
+            ctx.restore();
+        },
+
+        update: function () {
+        },
+    });
+
+    Label.defaults = {
+        _fontFamily: "'Lucida Grande','Hiragino Kaku Gothic ProN', Meiryo, sans-serif",
+        _fontWeight: '',
+        _fontSize: 18,
+        align: 'center',
+        baseline: 'bottom',
+        fillStyle: 'white',
+        strokeStyle: 'black',
+        text: '',
+    };
+
+    smr.defineAccessors(Label.prototype, {
+        fontSize: {
+            set: Label.prototype.setFontSize,
+            get: function () { return this._fontSize; }
+        },
+        fontFamily: {
+            set: Label.prototype.setFontFamily,
+            get: function () {
+                return this._fontFamily;
+            }
+        },
+        fontWeight: {
+            set: Label.prototype.setFontWeight,
+            get: function () {
+                return this._fontWeight;
+            }
+        },
+    });
+
+
+
+
     //ゲーム内で動作する Sprite クラスの定義
     var Sprite = function (imgSrc, width, height) {
         var that = this;
@@ -278,9 +545,111 @@
 
         //Sprite を描画すめメソッド
         that.draw = function () {
-            ctx.drawImage(img, _offset_x_pos, 0, width, height, that.x, that.y, width, height);
+            ctx.drawImage(img, _offset_x_pos, 0, width, height, that.x, that.y, that.width, that.height);
         };
     };
+
+
+
+    /**
+    ---------------------------------------------------
+    ----目指せ10000点---++++++++-----------------------
+    ----------------++++      //++++-------------------
+    --------------++             //++-----+-++---------
+    ----++-+-----++    O     O   ////++--+:+::+--------
+    ---+::+:+----++       <       //++---+::::+--------
+    ----+:::+----++              //++----+:::+---------
+    -----+///-----++       V     //++-----|/|----------
+    -------///-----$$$$$$$$$$$$$$$$$------|/|----------
+    --------///---++             $$+$$---|/|-----------
+    --------///--++-             $$  +$$-|/|-----------
+    ----------//++--              $$  +$$|||-----------
+    ----------///         O        $$  +$$|/-----------
+    -----------///                     |||++-----------
+    ----------++        O              ///++-----------
+    ----------++                      //++-------------
+    ----------++        O             //++-------------
+    ----------++                     ///++-------------
+    ----------++         O           ///++-------------
+    -----------++                   ////++-------------
+    ------------++        O         ///++--------------
+    -------------++             //////++---------------
+    --------------++        /////////++----------------
+    ----------------++++ ////////++++------------------
+    --------------------+++++++++----------------------
+    ---------------------------------------------------
+    */
+
+    //雪だるまに当たるとサイズを削る
+    var Turara = smr.define({
+        superClass: DrawInterface,
+
+        width: 2,
+        height: 4,
+
+        init: function () {
+            this.superInit();
+            this.initPosition();
+        },
+
+        setRandomX: function () {
+            this.x = ~~(Math.random() * 300) + 20;
+            return this;
+        },
+
+        move: function () {
+            this.y += this.dy;
+            if (this.y > 480) return this.initPosition();
+            this.dy += 0.1;
+            return this;
+        },
+
+        isHitSnowMan: function () {
+            return isHit(this, img_snow_man);
+        },
+
+        //雪だるまに当たってる時
+        attack: function () {
+            sizeRate -= 2;
+            if (sizeRate < 50) sizeRate = 50;
+
+            sounds.kiin.clone().play();
+            return this;
+        },
+
+        initPosition: function () {
+            this.y = -10;
+            this.setRandomX();
+            this.dy = 0.1;
+            return this;
+        },
+
+        draw: function () {
+            this.move();
+            if (this.isHitSnowMan()) {
+                this.attack();
+            }
+
+            ctx.save();
+
+            ctx.fillStyle = 'rgba(150,180,255,0.7)';
+
+            ctx.beginPath();
+
+            ctx.moveTo(this.x - 10, this.y);
+            ctx.lineTo(this.x + 10, this.y);
+            ctx.lineTo(this.x, this.y + 40);
+
+            ctx.closePath();
+
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+    });
+
+    var turara = Turara().addToDrawManager();
 
 
     //Document の準備ができたら
@@ -372,11 +741,27 @@
             this.hited = false;
         };
 
+        var snowMove = function () {
+            this.y += this.dy;
+            this.x += this.mx;
+            if (this.left) {
+                this.mx -= 0.1;
+                if (this.mx < -3) this.left = false;
+            } else {
+                this.mx += 0.1;
+                if (this.mx > 3) this.left = true;
+            }
+        };
+
         for (var i = 0; i < DRAW_SNOW_COUNT; i++) {
             //雪のインスタンスを生成
             var sprite_snow = new Sprite('img/snowSP.png', SNOW_PIC_SIZE, SNOW_PIC_SIZE);
             sprite_snow.dy = SNOW_DOWS_SPEED;
             sprite_snow.dx = DRAW_SNOW_GAP;
+            sprite_snow.left = Math.random() < 0.5;
+            sprite_snow.mx = Math.round(Math.random() * 60 - 30) / 10;
+
+            sprite_snow.move = snowMove;
             sprite_snow.init = snowInit;
             snow_sprites.push(sprite_snow);
             sprite_snow = null;
@@ -384,7 +769,6 @@
         //雪だるまのインスタンスを生成
         img_snow_man = new Sprite('img/snow_man.png', SNOW_MAN_PIC_SIZE, SNOW_MAN_PIC_SIZE);
 
-        img_snow_man.limit_rightPosition = getRightLimitPosition(canvas.clientWidth, img_snow_man.width);
 
         //画像のロードが完了したかどうかをチェックする関数
         loadCheck();
@@ -414,6 +798,7 @@
         img_snow_man.x = center_x;
         img_snow_man.y = 0;
         img_snow_man.y = canvas.clientHeight - img_snow_man.width;
+        img_snow_man.prevSize = 2;
 
         startScece();
     }
@@ -428,57 +813,106 @@
     }
 
 
+    drawingManager.add(function () {
+        if ((img_snow_man.x < getRightLimitPosition(canvas.clientWidth, img_snow_man.width) && key_value > 0)
+                || (img_snow_man.x >= SNOW_DOWS_SPEED && key_value < 0)) {
+            //img_snow_man の x 値を増分
+            img_snow_man.x += key_value;
+        }
+
+        var length = snow_sprites.length;
+        for (var i = 0; i < length; i++) {
+            var snow_sprite = snow_sprites[i];
+            //img_snow の y 値(縦位置) が canvas からはみ出たら先頭に戻す
+            if (snow_sprite.y > canvas.clientHeight) {
+                snow_sprite.y = getRandomPosition(DRAW_SNOW_COUNT, -30);
+                snow_sprite.index = 0;
+                //初期化
+                snow_sprite.init();
+            } else {
+                if (loopCounter == 30 && snow_sprite.index != 2) {
+                    snow_sprite.index = (snow_sprite.index == 0) ? 1 : 0;
+                }
+            }
+
+            snow_sprite.move();
+            //画像を描画
+            snow_sprite.draw();
+
+            //当たり判定
+            if (isHit(snow_sprite, img_snow_man)) {
+                hitJob(snow_sprite);
+            };
+            snow_sprite = null;
+        }
+
+
+        if (img_snow_man.prevSize < sizeRate) {
+            img_snow_man.prevSize += 1;
+            img_snow_man.height = img_snow_man.width = SNOW_MAN_PIC_SIZE * img_snow_man.prevSize/100;
+            img_snow_man.y = canvas.height - img_snow_man.height
+        } else if (sizeRate < img_snow_man.prevSize) {
+            img_snow_man.prevSize -= 1;
+            img_snow_man.height = img_snow_man.width = SNOW_MAN_PIC_SIZE * img_snow_man.prevSize/100;
+            img_snow_man.y = canvas.height - img_snow_man.height;
+        }
+        
+        //画像を描画
+        img_snow_man.draw();
+
+    });
+
+    Label('', {
+        align: 'right',
+        baseline: 'top',
+        x: 310,
+        y: 10
+    }).addToDrawManager().update = function () {
+        this.text = '残り' + (timeLimit / 1000).toFixed(0) + '秒';
+    };
+
+
+    var endScene = function () {
+        drawingManager.removeAll();
+        Label(score + '点!', {
+            fontSize: 30,
+            align: 'center',
+            baseline: 'middle',
+            fillStyle: 'aqua',
+            x: 160,
+            y: 240,
+        }).addToDrawManager();
+        drawingManager.add(img_snow_man);
+        drawingManager();
+    };
+
+    var turaraExtendTime = 39999;
+    var addTurara = function () {
+        if (turara.y > 240 && turara.y < 360) {
+            turara = Turara().addToDrawManager();
+            drawingManager.remove(addTurara);
+        }
+    };
 
     function startScece() {
+        if (bofore_animation_time) deltaTime = new Date() - bofore_animation_time;
+
         if (control_fps(48)) {
-            //canvas をクリア
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            timeLimit -= deltaTime;
 
-            if ((img_snow_man.x < img_snow_man.limit_rightPosition && key_value > 0)
-                || (img_snow_man.x >= SNOW_DOWS_SPEED && key_value < 0)) {
-                //img_snow_man の x 値を増分
-                img_snow_man.x += key_value;
+            if (timeLimit < turaraExtendTime) {                
+                drawingManager.add(addTurara);
+                turaraExtendTime -= 20000;
             }
+            if (timeLimit < 0) return endScene();
+            drawingManager();
 
-            var length = snow_sprites.length;
-            for (var i = 0; i < length; i++) {
-                var snow_sprite = snow_sprites[i];
-                //img_snow の y 値(縦位置) が canvas からはみ出たら先頭に戻す
-                if (snow_sprite.y > canvas.clientHeight) {
-                    snow_sprite.y = getRandomPosition(DRAW_SNOW_COUNT, -50);
-                    snow_sprite.index = 0;
-                    //初期化
-                    snow_sprite.init();
-                } else {
-                    if (loopCounter == 30 && snow_sprite.index != 2) {
-                        snow_sprite.index = (snow_sprite.index == 0) ? 1 : 0;
-                    }
-                }
-
-                //img_snow の y 値を増分
-                snow_sprite.y += snow_sprite.dy;
-                //画像を描画
-                snow_sprite.draw();
-
-                //当たり判定
-                if (isHit(snow_sprite, img_snow_man)) {
-                    hitJob(snow_sprite);
-                };
-                snow_sprite = null;
-            }
-
-            //画像を描画
-            img_snow_man.draw();
-
-            if (loopCounter == 30) { loopCounter = 0; }
-
+            if (loopCounter === 30) { loopCounter = 0; }
             loopCounter++;
-
-            //ループを開始
-            requestId = window.requestAnimationFrame(startScece);
-        } else {
-            requestId = window.requestAnimationFrame(startScece);
         }
+
+        //ループを開始
+        requestId = window.requestAnimationFrame(startScece);
     }
 
     //中央の Left 位置を求める関数
@@ -495,29 +929,39 @@
         return Math.floor(Math.random() * colCount) * delayPos;
     };
 
+    var hitText = Label('0点', {
+        x: 10,
+        y: 10,
+        align: 'left',
+        baseline: 'top',
+        fillStyle: 'aqua',
+        fontWeight: 'bold',
+    }).addToDrawManager();
+
     //雪と雪だるまがヒットした際の処理
     function hitJob(snow_sprite) {
-        ctx.font = "bold 50px";
-        ctx.fillStyle = "red";
-        ctx.fillText("ヒットしました", 100, 160);
         snow_sprite.index = 2;
+        score += (MAX_SIZE_RATE === sizeRate) ? 2 : 1;
+        hitText.text = score + '点';
+
+        if (loopCounter % 10 === 0)sounds.kiin.clone().setVolume(0.3).play();
+
         if (!snow_sprite.hited) {
+            sizeRate += 6;
+            if (MAX_SIZE_RATE < sizeRate) sizeRate = MAX_SIZE_RATE;
             sounds.kiin.clone().play();
             snow_sprite.hited = true;
+
         }
 
     }
 
     //当たり判定
     function isHit(targetA, targetB) {
-        if ((targetA.x <= targetB.x && targetA.width + targetA.x >= targetB.x)
-                || (targetA.x >= targetB.x && targetB.x + targetB.width >= targetA.x)) {
-
-            if ((targetA.y <= targetB.y && targetA.height + targetA.y >= targetB.y)
-                || (targetA.y >= targetB.y && targetB.y + targetB.height >= targetA.y)) {
-                return true;
-            }
-        }
+        return (targetA.x < targetB.x + targetB.width)
+            && (targetA.y < targetB.y + targetB.height)
+            && (targetB.x < targetA.x + targetA.width)
+            && (targetB.y < targetA.y + targetA.height);
     }
 
 })(window, document, smr);

@@ -349,7 +349,7 @@ var smr = smr || {};
                     var isFn = (typeof prp[k] === 'function');
                     o[k] = {
                         value : prp[k],
-                        writable : (!isFn),
+                        writable : /*(!isFn)*/true,
                         enumerable : (!isFn),
                         configurable : false
                     };
